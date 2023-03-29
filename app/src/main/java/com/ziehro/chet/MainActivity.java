@@ -12,6 +12,7 @@ import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -44,10 +45,12 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private String token = "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";
     private Button mButton;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        TextView textView = findViewById(R.id.textView);
 
         mButton = findViewById(R.id.button);
         mButton.setOnClickListener(new View.OnClickListener() {
@@ -135,116 +138,69 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         }
     }
 
-    private void sendRequestToOpenAI(String inputText) {
-        try {
-            // Construct the request body JSON
-            JSONObject requestBodyJson = new JSONObject();
-            requestBodyJson.put("model", "text-davinci-002");
+    private void sendRequestToOpenAI(String prompt) {
+        OkHttpClient client = new OkHttpClient();
+        String apiUrl = "https://api.openai.com/v1/chat/completions";
+        String apiKey = "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";
 
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put("model", "gpt-3.5-turbo");
+            //jsonObject.put("prompt", prompt);
+            jsonObject.put("temperature", 0.5);
+            jsonObject.put("max_tokens", 50);
+            jsonObject.put("n", 1);
+            jsonObject.put("stop", "\n");
+
+            // Add messages parameter
             JSONArray messagesArray = new JSONArray();
             JSONObject messageObject = new JSONObject();
-            messageObject.put("text", inputText);
+            messageObject.put("role", "user");
+            messageObject.put("content", prompt);
             messagesArray.put(messageObject);
-
-            requestBodyJson.put("prompt", messagesArray);
-            requestBodyJson.put("temperature", 0.7);
-            requestBodyJson.put("max_tokens", 60);
-
-            RequestBody requestBody = RequestBody.create(MediaType.parse("application/json"), requestBodyJson.toString());
-
-            // Make the API request using OkHttp client
-            Request request = new Request.Builder()
-                    .url("https://api.openai.com/v1/chat/completions")
-                    .post(requestBody)
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("Authorization", "Bearer " + "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")
-                    .build();
-
-            OkHttpClient client = new OkHttpClient();
-
-            client.newCall(request).enqueue(new Callback() {
-                @Override
-                public void onFailure(Call call, IOException e) {
-                    // Handle API request failure
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(MainActivity.this, "API request failed", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-
-                @Override
-                public void onResponse(Call call, Response response) throws IOException {
-                    // Handle API request success
-                    String responseBody = response.body().string();
-
-                    try {
-                        // Parse the API response JSON
-                        JSONObject responseJson = new JSONObject(responseBody);
-
-                        if (responseJson.has("error")) {
-                            // Handle API error
-                            JSONObject errorJson = responseJson.getJSONObject("error");
-                            String message = errorJson.getString("message");
-                            String type = errorJson.getString("type");
-
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Toast.makeText(MainActivity.this, "API request error: " + message + " (" + type + ")", Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                        } else {
-                            JSONArray choicesArray = responseJson.getJSONArray("choices");
-
-                            if (choicesArray.length() > 0) {
-                                JSONObject choiceObject = choicesArray.getJSONObject(0);
-
-                                if (choiceObject.has("text")) {
-                                    String outputText = choiceObject.getString("text");
-
-                                    // Display the response text to the user
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            Toast.makeText(MainActivity.this, outputText, Toast.LENGTH_SHORT).show();
-                                        }
-                                    });
-                                } else {
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            Toast.makeText(MainActivity.this, "API response error: Missing 'text' field in 'choices' array", Toast.LENGTH_SHORT).show();
-                                        }
-                                    });
-                                }
-                            } else {
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(MainActivity.this, "API response error: Empty 'choices' array", Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                            }
-                        }
-                    } catch (JSONException e) {
-                        // Handle JSON parsing error
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(MainActivity.this, "Error parsing API response", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    }
-                }
-
-            });
+            jsonObject.put("messages", messagesArray);
         } catch (JSONException e) {
-            // Handle JSON construction error
-            Toast.makeText(this, "Error constructing API request", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
+
+        RequestBody requestBody = RequestBody.create(MediaType.parse("application/json"), jsonObject.toString());
+
+        Request request = new Request.Builder()
+                .url(apiUrl)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Authorization", "Bearer " + apiKey)
+                .post(requestBody)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String responseData = response.body().string();
+                TextView textView = findViewById(R.id.textView);
+                try {
+                    JSONObject jsonObject = new JSONObject(responseData);
+                    JSONArray choicesArray = jsonObject.getJSONArray("choices");
+                    JSONObject choiceObject = choicesArray.getJSONObject(0);
+                    String text = choiceObject.getString("message");
+                    runOnUiThread(() -> {
+                        // Update UI with response text
+                        textView.setText(text);
+                        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+
+                    });
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                    Log.e(TAG, "Error parsing JSON response: " + responseData);
+                }
+            }
+        });
     }
+
 
 
 
