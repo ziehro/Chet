@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
     private OkHttpClient httpClient;
-    private String token = "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";
+    private String token = "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";
     private Button mButton;
 
 
@@ -141,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private void sendRequestToOpenAI(String prompt) {
         OkHttpClient client = new OkHttpClient();
         String apiUrl = "https://api.openai.com/v1/chat/completions";
-        String apiKey = "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";
+        String apiKey = "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";
 
         JSONObject jsonObject = new JSONObject();
         try {
