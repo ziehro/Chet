@@ -9,8 +9,11 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,12 +48,49 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private String token = "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";
     private Button mButton;
 
+    private Intent recognizerIntent;
+
+
+    private UtteranceProgressListener utteranceProgressListener = new UtteranceProgressListener() {
+        @Override
+        public void onStart(String utteranceId) {
+            // Do nothing
+        }
+
+        @Override
+        public void onDone(String utteranceId) {
+            if (utteranceId.equals("utteranceId")) {
+                // Start listening for new request
+                //speechRecognizer.startListening(recognizerIntent);
+            }
+        }
+
+        @Override
+        public void onError(String utteranceId) {
+            // Handle any errors that occur during TTS playback
+        }
+    };
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         TextView textView = findViewById(R.id.textView);
+
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getApplication().getPackageName());
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L);
+
+        speechRecognizer.setRecognitionListener(this);
+        // Start Continuous Speech Recognition
+        speechRecognizer.startListening(recognizerIntent);
+
 
         mButton = findViewById(R.id.button);
         mButton.setOnClickListener(new View.OnClickListener() {
@@ -73,6 +113,8 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
         // Initialize OkHttpClient
         httpClient = new OkHttpClient();
+
+
     }
 
     private void setupSpeechRecognizer() {
@@ -111,6 +153,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
     @Override
     public void onEndOfSpeech() {
+        speechRecognizer.startListening(recognizerIntent);
         Log.d(TAG, "onEndOfSpeech");
     }
 
@@ -124,31 +167,58 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     }
 
     @Override
-    public void onPartialResults(Bundle partialResults) {
-        Log.d(TAG, "onPartialResults");
+    public void onPartialResults(Bundle bundle) {
+        ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && matches.size() > 0) {
+            String command = matches.get(0);
+            if (command.equalsIgnoreCase("hey there chet")) {
+                // Stop current TTS playback
+                textToSpeech.stop();
+                // Listen for new request
+                speechRecognizer.stopListening();
+                textToSpeech.speak("yes?", TextToSpeech.QUEUE_FLUSH, null, null);
+                speechRecognizer.startListening(recognizerIntent);
+            }
+        }
     }
-
     @Override
     public void onResults(Bundle results) {
         Log.d(TAG, "onResults");
         ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+
+        ArrayList<String> matches2 = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && matches2.size() > 0) {
+            String command = matches2.get(0);
+            if (command.equalsIgnoreCase("hey there chet")) {
+                // Stop current TTS playback
+                textToSpeech.stop();
+                // Restart speech recognition
+                speechRecognizer.cancel();
+                textToSpeech.speak("yes?", TextToSpeech.QUEUE_FLUSH, null, null);
+                speechRecognizer.startListening(recognizerIntent);
+                return;
+            }
+        }
+
         if (matches != null) {
             String userInput = matches.get(0);
             sendRequestToOpenAI(userInput);
+            speechRecognizer.startListening(recognizerIntent);
         }
+
     }
 
     private void sendRequestToOpenAI(String prompt) {
         OkHttpClient client = new OkHttpClient();
         String apiUrl = "https://api.openai.com/v1/chat/completions";
-        String apiKey = "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";
+        String apiKey = "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";
 
         JSONObject jsonObject = new JSONObject();
         try {
             jsonObject.put("model", "gpt-3.5-turbo");
             //jsonObject.put("prompt", prompt);
-            jsonObject.put("temperature", 0.5);
-            jsonObject.put("max_tokens", 50);
+            jsonObject.put("temperature", 1);
+            jsonObject.put("max_tokens", 500);
             jsonObject.put("n", 1);
             jsonObject.put("stop", "\n");
 
@@ -189,8 +259,9 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                     String text = choiceObject.getString("message");
                     runOnUiThread(() -> {
                         // Update UI with response text
-                        textView.setText(text);
-                        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+                        textView.setText(text.substring(31));
+                        speak(text.substring(31));
+                        //textToSpeech.speak(text.substring(31), TextToSpeech.QUEUE_FLUSH, null, null);
 
                     });
                 } catch (JSONException e) {
@@ -198,10 +269,19 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                     Log.e(TAG, "Error parsing JSON response: " + responseData);
                 }
             }
+
+
+
         });
     }
 
+    private void speak(String message) {
+        // Set the keep screen on flag
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // Speak the message using the Text-to-Speech engine
+        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, "utteranceId");
+    }
 
 
     private String extractResponseText(String responseBody) {
@@ -229,8 +309,15 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     @Override
     public void onInit(int status) {
         // Check if Text-to-Speech is available
+
         if (status == TextToSpeech.SUCCESS) {
-            int result = textToSpeech.setLanguage(Locale.getDefault());
+            Locale locale = new Locale("en", "GB");
+            Voice voice = new Voice("en-gb-x-rjs-local", locale, Voice.QUALITY_HIGH, Voice.LATENCY_HIGH, false, null);
+            textToSpeech.setVoice(voice);
+
+            int result = textToSpeech.setLanguage(locale);
+            //int result = textToSpeech.setLanguage(Locale.getDefault());
+            textToSpeech.setOnUtteranceProgressListener(utteranceProgressListener);
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 Log.e(TAG, "Text-to-Speech language not supported.");
                 Toast.makeText(getApplicationContext(), "Text-to-Speech language not supported.", Toast.LENGTH_SHORT).show();
@@ -257,5 +344,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     public void onEvent(int eventType, Bundle params) {
         Log.d(TAG, "onEvent");
     }
+
+
 }
 
