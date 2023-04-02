@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
     private OkHttpClient httpClient;
-    private String token = "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";
+    private String token = BuildConfig.API_KEY;
     private Button mButton;
 
     private Button newQuestionButton;
@@ -82,9 +82,6 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
             textToSpeech.setSpeechRate(1.0F);
             textToSpeech.setOnUtteranceProgressListener(utteranceProgressListener);
-
-
-
 
         } else {
             Log.e(TAG, "Text-to-Speech initialization failed.");
@@ -185,7 +182,6 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechRecognizer.setRecognitionListener(this);
-
 
         // Start listening
         speechRecognizer.startListening(recognizerIntent);
@@ -369,6 +365,13 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         int utteranceId = hashCode();
         textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, Integer.toString(utteranceId));
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        }, 60000);
+
     }
 
     @Override

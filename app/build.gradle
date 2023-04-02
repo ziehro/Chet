@@ -10,16 +10,26 @@ android {
         applicationId "com.ziehro.chet"
         minSdk 26
         targetSdk 31
-        versionCode 4
+        versionCode 5
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    def apiKeysPropertiesFile = rootProject.file("apikeys.properties")
+    def apiKeysProperties = new Properties()
+    apiKeysProperties.load(new FileInputStream(apiKeysPropertiesFile))
     buildTypes {
+
+
+        debug {
+
+            buildConfigField("String", "API_KEY", apiKeysProperties['API_KEY'])
+        }
         release {
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            buildConfigField("String", "API_KEY", apiKeysProperties['API_KEY'])
         }
     }
     compileOptions {
