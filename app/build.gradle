@@ -9,8 +9,8 @@ android {
     defaultConfig {
         applicationId "com.ziehro.chet"
         minSdk 26
-        targetSdk 33
-        versionCode 1
+        targetSdk 31
+        versionCode 4
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -30,13 +30,14 @@ android {
 
 dependencies {
 
-    implementation 'androidx.appcompat:appcompat:+'
-    implementation 'com.google.android.material:material:+'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:+'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:+'
     androidTestImplementation 'androidx.test.espresso:espresso-core:+'
     implementation 'com.squareup.okhttp3:okhttp:4.9.1'
+    implementation 'com.google.android.gms:play-services-ads:22.0.0'
 
 }
 configurations.implementation {

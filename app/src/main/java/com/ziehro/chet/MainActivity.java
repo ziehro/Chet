@@ -2,9 +2,13 @@ package com.ziehro.chet;
 
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -22,12 +26,19 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.initialization.InitializationStatus;
+import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Locale;
 
 import okhttp3.Call;
@@ -45,32 +56,41 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
     private OkHttpClient httpClient;
-    private String token = "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";
+    private String token = "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";
     private Button mButton;
 
+    private Button newQuestionButton;
+    private Button shushButton;
+
     private Intent recognizerIntent;
+    StringBuilder conversationHistory = new StringBuilder();
+    StringBuilder conversationHistoryfull = new StringBuilder();
+
+    int audioIndex;
+    Date today = new Date();
 
 
-    private UtteranceProgressListener utteranceProgressListener = new UtteranceProgressListener() {
-        @Override
-        public void onStart(String utteranceId) {
-            // Do nothing
+    AdView mAdView;
+
+
+
+    @Override
+    public void onInit(int status) {
+        // Check if Text-to-Speech is available
+
+        if (status == TextToSpeech.SUCCESS) {
+
+            textToSpeech.setSpeechRate(1.0F);
+            textToSpeech.setOnUtteranceProgressListener(utteranceProgressListener);
+
+
+
+
+        } else {
+            Log.e(TAG, "Text-to-Speech initialization failed.");
+            Toast.makeText(getApplicationContext(), "Text-to-Speech initialization failed.", Toast.LENGTH_SHORT).show();
         }
-
-        @Override
-        public void onDone(String utteranceId) {
-            if (utteranceId.equals("utteranceId")) {
-                // Start listening for new request
-                //speechRecognizer.startListening(recognizerIntent);
-            }
-        }
-
-        @Override
-        public void onError(String utteranceId) {
-            // Handle any errors that occur during TTS playback
-        }
-    };
-
+    }
 
 
     @Override
@@ -79,6 +99,17 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         setContentView(R.layout.activity_main);
         TextView textView = findViewById(R.id.textView);
 
+        MobileAds.initialize(this, new OnInitializationCompleteListener() {
+            @Override
+            public void onInitializationComplete(InitializationStatus initializationStatus) {
+            }
+        });
+        mAdView = findViewById(R.id.adView);
+        AdRequest adRequest = new AdRequest.Builder().build();
+        mAdView.loadAd(adRequest);
+
+
+
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
@@ -86,17 +117,15 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getApplication().getPackageName());
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "");
 
-        speechRecognizer.setRecognitionListener(this);
-        // Start Continuous Speech Recognition
-        speechRecognizer.startListening(recognizerIntent);
-
-
-        mButton = findViewById(R.id.button);
-        mButton.setOnClickListener(new View.OnClickListener() {
+        shushButton = findViewById(R.id.shushButton);
+        shushButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                setupSpeechRecognizer();
+                if (textToSpeech != null && textToSpeech.isSpeaking()) {
+                    textToSpeech.stop();
+                }
             }
         });
 
@@ -111,29 +140,64 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         // Initialize Text-to-Speech
         textToSpeech = new TextToSpeech(this, this);
 
+
         // Initialize OkHttpClient
         httpClient = new OkHttpClient();
 
+        mButton = findViewById(R.id.button);
+        mButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                speechRecognizer.startListening(recognizerIntent);
+            }
+        });
 
+        newQuestionButton = findViewById(R.id.newquestionbutton);
+        newQuestionButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                conversationHistory = new StringBuilder("");
+                speechRecognizer.startListening(recognizerIntent);
+            }
+        });
+
+        Button emailButton = findViewById(R.id.emailbutton);
+        emailButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // Get the response text
+                String response = String.valueOf(conversationHistoryfull);
+
+                // Create an intent to open the email client
+                Intent emailIntent = new Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto","", null));
+                emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Conversation with Jimmy on " + today.getMonth() + " / " + today.getDate() + " at " + today.getHours() + ":" + today.getMinutes());
+                emailIntent.putExtra(Intent.EXTRA_TEXT, response);
+
+                // Start the email intent
+                startActivity(Intent.createChooser(emailIntent, "Send email..."));
+            }
+        });
     }
 
     private void setupSpeechRecognizer() {
         // Initialize SpeechRecognizer
+
+
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechRecognizer.setRecognitionListener(this);
 
-        // Create intent for SpeechRecognizer
-        Intent speechRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
 
         // Start listening
-        speechRecognizer.startListening(speechRecognizerIntent);
+        speechRecognizer.startListening(recognizerIntent);
     }
 
     @Override
     public void onReadyForSpeech(Bundle params) {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        audioIndex = audio.getStreamVolume(AudioManager.STREAM_NOTIFICATION);
+        audio.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0,AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE);
         Log.d(TAG, "onReadyForSpeech");
+
     }
 
     @Override
@@ -153,65 +217,57 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
     @Override
     public void onEndOfSpeech() {
-        speechRecognizer.startListening(recognizerIntent);
+        //speechRecognizer.startListening(recognizerIntent);
         Log.d(TAG, "onEndOfSpeech");
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        audio.setStreamVolume(AudioManager.STREAM_NOTIFICATION, audioIndex,0);
     }
 
     @Override
     public void onError(int error) {
         Log.e(TAG, "Error: " + error);
+
         if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-            speechRecognizer.stopListening();
-            speechRecognizer.startListening(new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH));
+
         }
     }
 
     @Override
     public void onPartialResults(Bundle bundle) {
-        ArrayList<String> matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        if (matches != null && matches.size() > 0) {
-            String command = matches.get(0);
-            if (command.equalsIgnoreCase("hey there chet")) {
-                // Stop current TTS playback
-                textToSpeech.stop();
-                // Listen for new request
-                speechRecognizer.stopListening();
-                textToSpeech.speak("yes?", TextToSpeech.QUEUE_FLUSH, null, null);
-                speechRecognizer.startListening(recognizerIntent);
-            }
-        }
+
     }
     @Override
     public void onResults(Bundle results) {
         Log.d(TAG, "onResults");
         ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
 
-        ArrayList<String> matches2 = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        if (matches != null && matches2.size() > 0) {
-            String command = matches2.get(0);
-            if (command.equalsIgnoreCase("hey there chet")) {
+        if (matches != null) {
+            String command = matches.get(0);
+            if (command.equalsIgnoreCase("hey Jimmy")) {
                 // Stop current TTS playback
                 textToSpeech.stop();
-                // Restart speech recognition
-                speechRecognizer.cancel();
-                textToSpeech.speak("yes?", TextToSpeech.QUEUE_FLUSH, null, null);
-                speechRecognizer.startListening(recognizerIntent);
+                // Listen for new request
+                speechRecognizer.stopListening();
+                textToSpeech.speak("Ya Buddy?", TextToSpeech.QUEUE_FLUSH, null, null);
+                Handler handler = new Handler();
+
+// Post a delayed runnable to start listening again after half a second
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        speechRecognizer.startListening(recognizerIntent);
+                    }
+                }, 1500);
                 return;
             }
-        }
-
-        if (matches != null) {
-            String userInput = matches.get(0);
+            String userInput = matches.get(0) + "\n" +conversationHistory.toString();
             sendRequestToOpenAI(userInput);
-            speechRecognizer.startListening(recognizerIntent);
         }
-
     }
-
     private void sendRequestToOpenAI(String prompt) {
         OkHttpClient client = new OkHttpClient();
         String apiUrl = "https://api.openai.com/v1/chat/completions";
-        String apiKey = "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";
+        String apiKey = token;
 
         JSONObject jsonObject = new JSONObject();
         try {
@@ -255,77 +311,64 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                 try {
                     JSONObject jsonObject = new JSONObject(responseData);
                     JSONArray choicesArray = jsonObject.getJSONArray("choices");
-                    JSONObject choiceObject = choicesArray.getJSONObject(0);
-                    String text = choiceObject.getString("message");
-                    runOnUiThread(() -> {
-                        // Update UI with response text
-                        textView.setText(text.substring(31));
-                        speak(text.substring(31));
-                        //textToSpeech.speak(text.substring(31), TextToSpeech.QUEUE_FLUSH, null, null);
+                    for (int i = 0; i < choicesArray.length(); i++) {
+                        JSONObject choiceObject = choicesArray.getJSONObject(i);
+                        JSONObject message = choiceObject.getJSONObject("message");
+                        String text = message.getString("content");
+                        String modifiedContent = text.replaceAll("As an AI language model, ", "");
+                        String modifiedContenta = modifiedContent.replaceAll("I'm sorry, but as an AI language model, ", "");
+                        String modifiedContent2 = modifiedContenta.replaceAll("I'm sorry, as an AI language model, ", "");
 
-                    });
+
+                        runOnUiThread(() -> {
+                            // Update UI with response text
+
+                            speak(modifiedContent2);
+
+                            conversationHistory.append(modifiedContent2 + "\n");
+                            conversationHistoryfull.append(prompt + "\n" + modifiedContent2 + "\n");
+                            textView.setText(modifiedContent2);
+
+                        });
+                    }
                 } catch (JSONException e) {
                     e.printStackTrace();
                     Log.e(TAG, "Error parsing JSON response: " + responseData);
                 }
             }
-
-
-
         });
+
     }
+
+    private final UtteranceProgressListener utteranceProgressListener = new UtteranceProgressListener() {
+        @Override
+        public void onStart(String utteranceId) {
+            // Do nothing
+        }
+
+        @Override
+        public void onDone(String utteranceId) {
+            if (utteranceId.equals(utteranceId)) {
+                // Start listening for new request
+                //Toast.makeText(getApplicationContext(), "Done Now", Toast.LENGTH_SHORT).show();
+                runOnUiThread(() -> {
+                speechRecognizer.stopListening();
+                speechRecognizer.startListening(recognizerIntent);
+                });
+            }
+        }
+
+        @Override
+        public void onError(String utteranceId) {
+            // Handle any errors that occur during TTS playback
+        }
+    };
 
     private void speak(String message) {
         // Set the keep screen on flag
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        // Speak the message using the Text-to-Speech engine
-        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, "utteranceId");
-    }
-
-
-    private String extractResponseText(String responseBody) {
-        // Extract response text from JSON response
-        String responseText = "";
-        try {
-            responseText = responseBody.substring(responseBody.indexOf("\"text\":") + 8);
-            responseText = responseText.substring(0, responseText.indexOf("\""));
-        } catch (Exception e) {
-            Log.e(TAG, "Error extracting response text: " + e.getMessage());
-        }
-        return responseText;
-    }
-
-    private void speakResponse(final String responseText) {
-        // Speak response text
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                textToSpeech.speak(responseText, TextToSpeech.QUEUE_FLUSH, null, null);
-            }
-        });
-    }
-
-    @Override
-    public void onInit(int status) {
-        // Check if Text-to-Speech is available
-
-        if (status == TextToSpeech.SUCCESS) {
-            Locale locale = new Locale("en", "GB");
-            Voice voice = new Voice("en-gb-x-rjs-local", locale, Voice.QUALITY_HIGH, Voice.LATENCY_HIGH, false, null);
-            textToSpeech.setVoice(voice);
-
-            int result = textToSpeech.setLanguage(locale);
-            //int result = textToSpeech.setLanguage(Locale.getDefault());
-            textToSpeech.setOnUtteranceProgressListener(utteranceProgressListener);
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.e(TAG, "Text-to-Speech language not supported.");
-                Toast.makeText(getApplicationContext(), "Text-to-Speech language not supported.", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Log.e(TAG, "Text-to-Speech initialization failed.");
-            Toast.makeText(getApplicationContext(), "Text-to-Speech initialization failed.", Toast.LENGTH_SHORT).show();
-        }
+        int utteranceId = hashCode();
+        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, Integer.toString(utteranceId));
     }
 
     @Override
@@ -344,7 +387,5 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     public void onEvent(int eventType, Bundle params) {
         Log.d(TAG, "onEvent");
     }
-
-
 }
 
