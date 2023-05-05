@@ -1,0 +1,46 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/welcome_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Welcome to Jimmy!"
+        android:textSize="24sp"
+        android:layout_marginTop="50dp"
+        android:layout_centerHorizontal="true"/>
+
+    <TextView
+        android:id="@+id/description_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/welcome_message"
+        android:layout_centerHorizontal="true"
+        android:layout_margin="10dp"
+        android:layout_marginTop="20dp"
+        android:text="Jimmy is an AI language model that you can chat with like a friend."
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/instructions_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/description_message"
+        android:layout_centerHorizontal="true"
+        android:layout_margin="10dp"
+        android:layout_marginTop="20dp"
+        android:text="When the app opens start a conversation with ol Jim.  If it doesn't work the first time it's because the app is brand new.  You might have to close it and try again, but trust me you will be delighted with the results.  Use the 'Ask More' button to carry on the conversation, use the 'New question' button to start a new one.  'Shush' stops the speech and 'Email the convo' does what it says."
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/start_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Let's Get Started!"
+        android:textSize="16sp"
+        android:layout_below="@+id/instructions_message"
+        android:layout_marginTop="50dp"
+        android:layout_centerHorizontal="true"/>
+
+</RelativeLayout>
