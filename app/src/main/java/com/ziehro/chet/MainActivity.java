@@ -4,8 +4,11 @@ package com.ziehro.chet;
 import android.Manifest;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -16,16 +19,23 @@ import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
+import android.text.InputType;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatImageButton;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -63,6 +73,15 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private Button mButton;
     private Button newQuestionButton;
     private Button shushButton;
+    private EditText promptEditText;
+    private Button sendButton;
+
+    private FrameLayout mainContainer;
+    private ImageButton keyboardButton;
+
+    private boolean isListening = true;
+    private boolean isPromptFromKeyboard = false;
+
     private Intent recognizerIntent;
     StringBuilder conversationHistory = new StringBuilder();
     StringBuilder conversationHistoryfull = new StringBuilder();
@@ -104,6 +123,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         TextView textView = findViewById(R.id.textView);
         Toast.makeText(this, "Start Speaking Now", Toast.LENGTH_LONG).show();
 
@@ -116,6 +136,9 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         AdRequest adRequest = new AdRequest.Builder().build();
         mAdView.loadAd(adRequest);
         textToSpeech = new TextToSpeech(this, this);
+        promptEditText = findViewById(R.id.promptEditText);
+
+
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -125,6 +148,8 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 4000L);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "");
+
+
 
         shushButton = findViewById(R.id.shushButton);
         shushButton.setOnClickListener(new View.OnClickListener() {
@@ -163,6 +188,28 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
             }
         });
 
+        sendButton = findViewById(R.id.sendButton);
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // Get the prompt text from the EditText field
+                String prompt = promptEditText.getText().toString().trim();
+
+                // Check if prompt is not empty
+                if (!prompt.isEmpty()) {
+                    // Set the flag to indicate prompt from the keyboard
+                    isPromptFromKeyboard = true;
+
+                    // Send the prompt to the chatbot
+                    sendRequestToOpenAI(prompt);
+
+                    // Clear the EditText field
+                    promptEditText.setText("");
+                }
+            }
+        });
+
+
         newQuestionButton = findViewById(R.id.newquestionbutton);
         newQuestionButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -178,6 +225,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
                 speechRecognizer.startListening(recognizerIntent);
             }
         });
+
 
         Button emailButton = findViewById(R.id.emailbutton);
         emailButton.setOnClickListener(new View.OnClickListener() {
@@ -208,26 +256,53 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         thinkingDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         thinkingDialog.setContentView(R.layout.dialog_thinking);
         thinkingDialog.setCancelable(false);
+        thinkingDialog.dismiss();
         thinkingDialog.show();
         listeningDialog = new Dialog(this);
         listeningDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         listeningDialog.setContentView(R.layout.dialog_listening);
         listeningDialog.setCancelable(false);
+        listeningDialog.dismiss();
+        Button quitButton = listeningDialog.findViewById(R.id.quitButton);
+        quitButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Dismiss the thinking dialog
+                        if (thinkingDialog != null && thinkingDialog.isShowing()) {
+                            thinkingDialog.dismiss();
+                        }
+
+                        // Open the keyboard dialog
+                        openKeyboard();
+                    }
+                });
+            }
+        });
+
+
         listeningDialog.show();
 
 
 
         // Start listening
         speechRecognizer.startListening(recognizerIntent);
-
-
     }
 
     @Override
     public void onReadyForSpeech(Bundle params) {
+
         AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         audioIndex = audio.getStreamVolume(AudioManager.STREAM_NOTIFICATION);
         audio.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0,AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE);
+        Log.d(TAG, "onReadyForSpeech");
+
+
+
+        // ...
+
         Log.d(TAG, "onReadyForSpeech");
 
     }
@@ -253,6 +328,14 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         Log.d(TAG, "onEndOfSpeech");
         AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         //audio.setStreamVolume(AudioManager.STREAM_NOTIFICATION, audioIndex,0);
+        // Remove the keyboard button from the WindowManager
+
+        // Remove the keyboard button from the window manager
+        if (keyboardButton != null && keyboardButton.isAttachedToWindow()) {
+            WindowManager windowManager = getWindow().getWindowManager();
+            //windowManager.removeView(keyboardButton);
+        }
+
 
     }
 
@@ -297,7 +380,7 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
 
 
-        if (matches != null) {
+        if (matches != null && isListening) {
 
             String command = matches.get(0);
             if (command.equalsIgnoreCase("hey Jimmy")) {
@@ -309,6 +392,18 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
             String userInput = matches.get(0) + "\n" +conversationHistory.toString();
 
             sendRequestToOpenAI(userInput);
+        }
+        else {
+            // Get text from keyboard dialog
+            EditText editText = this.findViewById(R.id.promptEditText);
+            String prompt = editText.getText().toString();
+
+            // Send prompt to OpenAI
+            sendRequestToOpenAI(prompt);
+            // Clear text in edit text
+            editText.setText("");
+            // Show thinking dialog
+            thinkingDialog.show();
         }
     }
     private void sendRequestToOpenAI(String prompt) {
@@ -432,15 +527,24 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
     private void speak(String message) {
         // Set the keep screen on flag
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        int utteranceId = hashCode();
-        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, Integer.toString(utteranceId));
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            }
-        }, 60000);
+
+        // Check if the prompt is not from the keyboard
+        if (!isPromptFromKeyboard) {
+            int utteranceId = hashCode();
+            textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, Integer.toString(utteranceId));
+
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+            }, 60000);
+        } else {
+            // Clear the flag for the next prompt
+            isPromptFromKeyboard = false;
+        }
     }
+
 
     @Override
     protected void onDestroy() {
@@ -451,6 +555,12 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
+        }
+        if (thinkingDialog != null && thinkingDialog.isShowing()) {
+            thinkingDialog.dismiss();
+        }
+        if (listeningDialog != null && listeningDialog.isShowing()) {
+            listeningDialog.dismiss();
         }
     }
 
@@ -500,5 +610,75 @@ public class MainActivity extends AppCompatActivity implements RecognitionListen
 
 
     }
+    private void stopListening() {
+        speechRecognizer.stopListening();
+        textToSpeech.stop();
+    }
+
+    private void openKeyboard() {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        isPromptFromKeyboard = true;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Enter your prompt");
+
+                // Set up the input
+                final EditText input = new EditText(MainActivity.this);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+                builder.setView(input);
+
+                // Set up the buttons
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Get the user input and send it to the OpenAI API
+                        String prompt = input.getText().toString();
+                        sendRequestToOpenAI(prompt);
+                    }
+                });
+                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.cancel();
+                    }
+                });
+
+                // Show the dialog
+                AlertDialog dialog = builder.create();
+                dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+                dialog.show();
+            }
+        });
+    }
+
+    private void addKeyboardButtonToLayout() {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                FrameLayout rootLayout = findViewById(android.R.id.content);
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT
+                );
+                params.gravity = Gravity.TOP | Gravity.END;
+                params.topMargin = 16;
+                params.rightMargin = 16;
+                rootLayout.addView(keyboardButton, params);
+            }
+        });
+    }
+
+
+
+
+
 }
 
