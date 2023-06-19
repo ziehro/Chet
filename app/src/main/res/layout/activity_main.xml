@@ -7,31 +7,6 @@
     tools:context=".MainActivity">
 
 
-
-
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="10dp"
-        android:paddingHorizontal="15dp"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toTopOf="@+id/promptEditText"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.491"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="Ask More"
-        app:layout_constraintBottom_toTopOf="@+id/newquestionbutton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
     <com.google.android.gms.ads.AdView
         android:id="@+id/adView"
         android:layout_width="wrap_content"
@@ -47,59 +22,30 @@
         app:layout_constraintStart_toStartOf="parent"></com.google.android.gms.ads.AdView>
 
     <Button
-        android:id="@+id/shushButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="Shush"
-        app:layout_constraintBottom_toTopOf="@+id/emailbutton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent" />
-
-
-    <Button
-        android:id="@+id/newquestionbutton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="New Question"
+        android:id="@+id/talkToDanBtn"
+        android:layout_width="250dp"
+        android:layout_height="200dp"
+        android:text="Question"
+        android:textSize="20sp"
         app:layout_constraintBottom_toTopOf="@+id/shushButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        android:elevation="10dp"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <Button
-        android:id="@+id/emailbutton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="32dp"
-        android:text="Email Conversation"
+        android:id="@+id/shushButton"
+        android:layout_width="250dp"
+        android:layout_height="200dp"
+        android:text="Conversation"
+        android:textSize="20sp"
         app:layout_constraintBottom_toTopOf="@+id/adView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <EditText
-        android:id="@+id/promptEditText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:hint="Type your prompt here"
-        app:layout_constraintBottom_toTopOf="@+id/button"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <Button
-        android:id="@+id/sendButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="8dp"
-        android:text="Send"
-        app:layout_constraintBottom_toTopOf="@+id/button"
-        app:layout_constraintEnd_toEndOf="@+id/promptEditText" />
+        app:layout_constraintStart_toStartOf="parent"
+        android:elevation="10dp"
+        app:layout_constraintTop_toBottomOf="@+id/talkToDanBtn" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
